@@ -204,6 +204,8 @@ async def run_parse_job(doc_id: int, job_id: int, trace: str) -> dict[str, Any]:
         if e.code in ("CFG_KEY_MISSING",):
             _set_status(doc_id, "parsed")  # 无嵌入密钥：关键词检索仍可用
             return {"status": "parsed", "reason": "embedding key missing"}
+        # 索引失败：标记文档失败并给出原因，避免状态卡在「抽取元数据」
+        _set_status(doc_id, "failed", e.code)
         raise
     runner.check_cancel(job_id)
     _set_status(doc_id, "ready")
@@ -220,11 +222,13 @@ async def _extract_metadata(doc_id: int, trace: str, job_id: int) -> None:
         _set_status(doc_id, "parsed")
         return
     row = db.fetch_one("SELECT * FROM document WHERE id=?", (doc_id,))
-    head = db.fetch_one(
+    # 注意：取前 4 个片段拼接（此前 fetch_one 只取第 1 个，PDF 首页若是
+    # 刊号/卷期等内容，模型将看不到标题、作者等关键信息）
+    head_rows = db.fetch_all(
         "SELECT text FROM chunk WHERE document_id=? AND chunk_type IN ('body','abstract') "
         "ORDER BY chunk_index LIMIT 4", (doc_id,))
-    text = head["text"][:4000] if head else ""
-    if not text:
+    text = "\n".join(r["text"] for r in head_rows)[:4000]
+    if not text.strip():
         return
     get_runner().check_cancel(job_id)
     try:
@@ -243,13 +247,17 @@ async def _extract_metadata(doc_id: int, trace: str, job_id: int) -> None:
                 "metadata_json": db_metadata_dumps(data),
                 "updated_at": db.now(),
             })
-            # 摘要（无原文摘要时）
-            if not data.get("abstract"):
+            # 摘要：原文有摘要则直接用作摘要；没有才由模型概括
+            if data.get("abstract"):
+                db.update("document", doc_id, {
+                    "summary": str(data["abstract"]).strip()[:600],
+                    "updated_at": db.now()})
+            else:
                 try:
-                    body = db.fetch_one(
+                    body_rows = db.fetch_all(
                         "SELECT text FROM chunk WHERE document_id=? AND chunk_type='body' "
                         "ORDER BY chunk_index LIMIT 3", (doc_id,))
-                    summary_src = (body["text"] if body else "")[:3000]
+                    summary_src = "\n".join(r["text"] for r in body_rows)[:3000]
                     if summary_src:
                         meta_str = "；".join(f"{k}: {v}" for k, v in
                                              (("标题", data.get("title")), ("作者", data.get("authors")),

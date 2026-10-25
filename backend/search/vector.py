@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import db
+from ..errors import AppError
 from ..paths import get_data_dir
 
 _log = logging.getLogger("backend")
@@ -69,40 +70,69 @@ def _numpy_store_path(model: str) -> Path:
 
 
 class VectorIndex:
-    """统一接口：store(vectors, chunk_ids) / query(vector, k, filter_chunk_ids) / delete_doc。"""
+    """统一接口：store(vectors, chunk_ids) / query(vector, k, filter_chunk_ids) / delete_doc。
+
+    注意：sqlite-vec 的 vec0 表不支持并发写入（并发建表/插入会损坏索引且不可修复），
+    因此所有写操作（ensure/store/delete）通过实例级锁串行化。
+    """
 
     def __init__(self, model: str) -> None:
+        import threading
         self.model = model
         self.dim: int | None = None
         self.backend = "sqlite-vec" if HAVE_SQLITE_VEC else "numpy"
+        self._lock = threading.Lock()
 
     # ---- 初始化 ----
     def ensure(self, dim: int) -> None:
         """确定维度并建表。换维度会重建（调用方负责数据迁移）。"""
-        if self.dim == dim:
-            return
-        if self.dim is None:
-            self.discover()  # 重启后避免误删既有索引表
-        if self.dim == dim:
-            return
-        with db.connect() as conn:
-            if _try_load_extension(conn):
-                self.backend = "sqlite-vec"
-                if self.dim is not None:  # 维度变化 → 重建该模型的索引表
-                    _log.warning("embedding dim changed %s -> %s, rebuilding vector table %s",
-                                 self.dim, dim, _table_slug(self.model))
-                    conn.execute(f"DROP TABLE IF EXISTS {_table_slug(self.model)}")
-                conn.execute(
-                    f"CREATE VIRTUAL TABLE {_table_slug(self.model)} USING vec0("
-                    f"chunk_id INTEGER PRIMARY KEY, embedding FLOAT[{dim}])")
+        with self._lock:
+            if self.dim == dim:
+                return
+            if self.dim is None:
+                self.discover()  # 重启后避免误删既有索引表
+            if self.dim == dim:
+                return
+            if self._vec_broken_flag():
+                # vec 表曾损坏且无法重建：直接走 NumPy 降级
+                self.backend = "numpy"
                 self.dim = dim
                 return
-        self.backend = "numpy"
-        self.dim = dim
+            with db.connect() as conn:
+                if _try_load_extension(conn):
+                    self.backend = "sqlite-vec"
+                    slug = _table_slug(self.model)
+                    exists = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                        (slug,)).fetchone()
+                    if exists and self.dim is None:
+                        # 并发任务已建表（discover 未看到数据时可能发生）：直接复用
+                        self.dim = dim
+                        return
+                    if self.dim is not None:  # 维度变化 → 重建该模型的索引表
+                        _log.warning("embedding dim changed %s -> %s, rebuilding vector table %s",
+                                     self.dim, dim, slug)
+                        conn.execute(f"DROP TABLE IF EXISTS {slug}")
+                    conn.execute(
+                        f"CREATE VIRTUAL TABLE IF NOT EXISTS {slug} USING vec0("
+                        f"chunk_id INTEGER PRIMARY KEY, embedding FLOAT[{dim}])")
+                    self.dim = dim
+                    return
+            self.backend = "numpy"
+            self.dim = dim
 
     def discover(self) -> None:
         """进程重启后从数据库恢复维度与后端类型（索引数据持久化在库中）。"""
         if self.dim is not None:
+            return
+        if self._vec_broken_flag():
+            # vec 表曾损坏：从 chunk 表恢复维度，但后端直接降级 numpy
+            row = db.fetch_one(
+                "SELECT embedding_dim FROM chunk WHERE embedding_model=? "
+                "AND embedding_dim IS NOT NULL LIMIT 1", (self.model,))
+            if row and _numpy_store_path(self.model).exists():
+                self.backend = "numpy"
+                self.dim = int(row["embedding_dim"])
             return
         row = db.fetch_one(
             "SELECT embedding_dim FROM chunk WHERE embedding_model=? "
@@ -121,21 +151,94 @@ class VectorIndex:
             self.dim = dim
 
     # ---- 写入 ----
+    def _vec_error(self, e: Exception) -> bool:
+        """判断是否为 sqlite-vec 内部错误（注意 db.connect 会把原始 sqlite 错误
+        包装成 AppError(DB_WRITE_FAILED)，需同时检查两者）。"""
+        msg = str(getattr(e, "message", "") or e)
+        return "sqlite-vec" in msg
+
     def store(self, vectors: list[list[float]], chunk_ids: list[int]) -> None:
         if not vectors:
             return
         assert self.dim is not None
-        if self.backend == "sqlite-vec":
-            with db.connect() as conn:
-                if _try_load_extension(conn):
-                    conn.executemany(
-                        f"INSERT INTO {_table_slug(self.model)}(chunk_id, embedding) "
-                        f"VALUES (?, ?)",
-                        [(cid, sqlite_vec.serialize_float32(v)) for cid, v in zip(chunk_ids, vectors)])
+        with self._lock:
+            if self.backend == "sqlite-vec":
+                try:
+                    self._store_vec(vectors, chunk_ids)
                     return
-                # 扩展加载突然失败 → 切回 numpy
+                except (sqlite3.Error, AppError) as e:
+                    # vec 表损坏（如并发事故）：尝试重建一次
+                    if self._vec_error(e):
+                        _log.warning("vec table broken (%s), trying rebuild", e)
+                        if self._rebuild_vec(vectors, chunk_ids):
+                            return
+                        # 重建失败 → 降级 NumPy（本会话 + 持久标记），
+                        # 并把该模型的嵌入标记清空（避免检索误以为这些片段有向量）
+                        _log.error("vec backend unusable, fallback to numpy for %s", self.model)
+                        self._mark_vec_broken()
+                        try:
+                            with db.connect() as conn:
+                                conn.execute(
+                                    "UPDATE chunk SET embedding_model=NULL, embedding_dim=NULL "
+                                    "WHERE embedding_model=?", (self.model,))
+                        except Exception:
+                            pass
+                        self.backend = "numpy"
+                    else:
+                        raise
+            self._numpy_store(vectors, chunk_ids)
+
+    def _mark_vec_broken(self) -> None:
+        key = f"vec_broken_{_table_slug(self.model)}"
+        with db.connect() as conn:
+            conn.execute(
+                f"INSERT INTO meta(key, value) VALUES('{key}', '1') "
+                "ON CONFLICT(key) DO UPDATE SET value='1'")
+
+    def _vec_broken_flag(self) -> bool:
+        key = f"vec_broken_{_table_slug(self.model)}"
+        row = db.fetch_one("SELECT value FROM meta WHERE key=?", (key,))
+        return bool(row and row["value"] == "1")
+
+    def _store_vec(self, vectors: list[list[float]], chunk_ids: list[int]) -> None:
+        with db.connect() as conn:
+            if not _try_load_extension(conn):
                 self.backend = "numpy"
-        self._numpy_store(vectors, chunk_ids)
+                raise sqlite3.OperationalError("vec extension unavailable")
+            conn.executemany(
+                f"INSERT INTO {_table_slug(self.model)}(chunk_id, embedding) "
+                f"VALUES (?, ?)",
+                [(cid, sqlite_vec.serialize_float32(v)) for cid, v in zip(chunk_ids, vectors)])
+
+    def _rebuild_vec(self, vectors: list[list[float]], chunk_ids: list[int]) -> bool:
+        """损坏后重建：删表 → 建表 → 只重写当前批次；旧向量作废，
+        所有该模型的片段标记为未嵌入（需重新解析/重建索引恢复语义检索）。"""
+        slug = _table_slug(self.model)
+        dim = self.dim
+        try:
+            with db.connect() as conn:
+                if not _try_load_extension(conn):
+                    return False
+                conn.execute(f"DROP TABLE IF EXISTS {slug}")
+                conn.execute(
+                    f"CREATE VIRTUAL TABLE {slug} USING vec0("
+                    f"chunk_id INTEGER PRIMARY KEY, embedding FLOAT[{dim}])")
+                conn.executemany(
+                    f"INSERT INTO {slug}(chunk_id, embedding) VALUES (?, ?)",
+                    [(cid, sqlite_vec.serialize_float32(v)) for cid, v in zip(chunk_ids, vectors)])
+                conn.execute(
+                    "UPDATE chunk SET embedding_model=NULL, embedding_dim=NULL "
+                    "WHERE embedding_model=?", (self.model,))
+                key = f"vec_broken_{_table_slug(self.model)}"
+                conn.execute(
+                    f"INSERT INTO meta(key, value) VALUES('{key}', '0') "
+                    "ON CONFLICT(key) DO UPDATE SET value='0'")
+            _log.warning("vec table rebuilt; chunks marked unembedded, semantic search "
+                         "degraded until documents are re-parsed")
+            return True
+        except Exception as e:  # noqa: BLE001
+            _log.error("vec rebuild failed: %s", e)
+            return False
 
     def _numpy_store(self, vectors: list[list[float]], chunk_ids: list[int]) -> None:
         import numpy as np
@@ -199,6 +302,13 @@ class VectorIndex:
         except sqlite3.OperationalError:
             self.backend = "numpy"
             return self._query_numpy(vector, k, filter_ids)
+        except AppError as e:
+            # vec 表损坏：降级 numpy 检索（关键词检索不受影响）
+            if self._vec_error(e):
+                _log.warning("vec query failed (%s), fallback to numpy", e)
+                self.backend = "numpy"
+                return self._query_numpy(vector, k, filter_ids)
+            raise
         out = [(r["chunk_id"], r["distance"]) for r in rows]
         if filter_ids is not None:
             allowed = set(filter_ids)
@@ -233,30 +343,36 @@ class VectorIndex:
     def delete_chunks(self, chunk_ids: list[int]) -> None:
         if not chunk_ids:
             return
-        if self.backend == "sqlite-vec":
-            try:
-                with db.connect() as conn:
-                    if _try_load_extension(conn):
-                        conn.executemany(
-                            f"DELETE FROM {_table_slug(self.model)} WHERE chunk_id = ?",
-                            [(cid,) for cid in chunk_ids])
-                        return
-            except sqlite3.Error:
-                self.backend = "numpy"
-        import numpy as np
-        loaded = self._numpy_load()
-        if loaded is None:
-            return
-        ids, vecs = loaded
-        drop = set(chunk_ids)
-        keep = [i for i, cid in enumerate(ids.tolist()) if cid not in drop]
-        if len(keep) == len(ids):
-            return
-        path = _numpy_store_path(self.model)
-        tmp = path.with_suffix(".tmp.npz")
-        np.savez(tmp, ids=np.asarray(ids[keep]), vecs=vecs[keep])
-        tmp.replace(path)
-        self._numpy_cache = None
+        with self._lock:
+            if self.backend == "sqlite-vec":
+                try:
+                    with db.connect() as conn:
+                        if _try_load_extension(conn):
+                            conn.executemany(
+                                f"DELETE FROM {_table_slug(self.model)} WHERE chunk_id = ?",
+                                [(cid,) for cid in chunk_ids])
+                            return
+                except sqlite3.Error:
+                    self.backend = "numpy"
+                except AppError as e:
+                    if self._vec_error(e):
+                        self.backend = "numpy"
+                    else:
+                        raise
+            import numpy as np
+            loaded = self._numpy_load()
+            if loaded is None:
+                return
+            ids, vecs = loaded
+            drop = set(chunk_ids)
+            keep = [i for i, cid in enumerate(ids.tolist()) if cid not in drop]
+            if len(keep) == len(ids):
+                return
+            path = _numpy_store_path(self.model)
+            tmp = path.with_suffix(".tmp.npz")
+            np.savez(tmp, ids=np.asarray(ids[keep]), vecs=vecs[keep])
+            tmp.replace(path)
+            self._numpy_cache = None
 
     def stats(self) -> dict[str, Any]:
         return {"backend": self.backend, "model": self.model, "dim": self.dim}

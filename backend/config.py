@@ -122,13 +122,18 @@ class Config:
                 self.save()
 
     def save(self) -> None:
+        from .errors import AppError
         with self._lock:
-            self.data_dir.mkdir(parents=True, exist_ok=True)
-            tmp = self.path.with_suffix(".json.tmp")
-            tmp.write_text(
-                json.dumps(self._data, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-            tmp.replace(self.path)
+            try:
+                self.data_dir.mkdir(parents=True, exist_ok=True)
+                tmp = self.path.with_suffix(".json.tmp")
+                tmp.write_text(
+                    json.dumps(self._data, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                tmp.replace(self.path)
+            except OSError as e:
+                # 只读目录/被锁文件等：给用户可操作的提示，而不是笼统 500
+                raise AppError("CFG_CONFIG_WRITE", message=str(e), stage="config") from e
 
     # ---- 访问 ----
     @property

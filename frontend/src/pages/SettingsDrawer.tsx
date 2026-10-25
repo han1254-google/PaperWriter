@@ -188,7 +188,7 @@ export function SettingsDrawer({ open, onClose }: { open: boolean; onClose: () =
             label: "关于",
             children: (
               <Space direction="vertical" style={{ width: "100%" }}>
-                <Typography.Title level={5}>文科论文写作助手 v0.5.1</Typography.Title>
+                <Typography.Title level={5}>文科论文写作助手 v0.5.2</Typography.Title>
                 <Typography.Paragraph>
                   面向文科（以法学为主）学生的论文辅助写作工具。本地运行，数据不出本机
                   （模型调用除外）。本产品不提供代写服务，不承诺规避查重或 AIGC 检测，

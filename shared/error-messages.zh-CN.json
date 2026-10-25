@@ -18,6 +18,11 @@
     "userMessage": "配置文件损坏，已用默认配置启动并备份原文件",
     "suggestion": "在「设置 → 模型与 API Key」重新填写密钥"
   },
+  "CFG_CONFIG_WRITE": {
+    "message": "config.json not writable",
+    "userMessage": "配置文件无法写入，密钥保存失败",
+    "suggestion": "程序所在文件夹可能是只读的（如解压到了 Program Files、网盘同步目录或被安全软件锁定）。请把整个文件夹移动到可写位置（如 D 盘普通目录）后重新双击启动脚本"
+  },
   "CFG_MODEL_DENIED": {
     "message": "model not accessible with this key",
     "userMessage": "当前密钥没有该模型的访问权限",
