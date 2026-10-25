@@ -16,7 +16,7 @@ import { streamJob } from "../lib/stream";
 import { applyEvent, initialState, StreamBox, type StreamState } from "../components/StreamBox";
 import { ChunkList } from "../components/ChunkList";
 import { ErrorPanel } from "../components/ErrorBoundary";
-import { fmtDate } from "../lib/format";
+import { DISCIPLINES, fmtDate } from "../lib/format";
 
 const WORD_PRESETS = [3000, 5000, 8000, 12000, 20000];
 
@@ -90,6 +90,7 @@ export function DesignEditor() {
       form.setFieldsValue({
         intent: d.intent, title: d.title, description: d.description,
         total_word_count: d.total_word_count,
+        discipline: d.discipline || "法学",
       });
       setSaveState("saved");
     } finally { setLoading(false); }
@@ -153,6 +154,7 @@ export function DesignEditor() {
       await put(`/api/designs/${designId}`, {
         intent: v.intent, title: v.title, description: v.description,
         overall_idea: design?.overall_idea, total_word_count: v.total_word_count,
+        discipline: v.discipline || "法学",
         tree: flattenTree(treeRoots).map((n, i) => ({
           id: n.key, parent_id: n.parent_id, title: n.title, idea: n.idea,
           word_budget: n.word_budget, sort: i,
@@ -511,9 +513,15 @@ export function DesignEditor() {
                     </Space>
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col span={8}>
                   <Form.Item label="文章标题（可选，留空由 AI 补全）" name="title">
                     <Input maxLength={100} />
+                  </Form.Item>
+                </Col>
+                <Col span={4}>
+                  <Form.Item label="学科" name="discipline"
+                    extra="决定生成风格与章节结构">
+                    <Select options={DISCIPLINES.map((d) => ({ value: d, label: d }))} />
                   </Form.Item>
                 </Col>
                 <Col span={12}>

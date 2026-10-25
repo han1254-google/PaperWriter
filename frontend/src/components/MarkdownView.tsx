@@ -1,11 +1,40 @@
-/** Markdown 渲染：NOTICE 提示块高亮、引用标记高亮（§9.3）。 */
+/** Markdown 渲染：NOTICE 提示块高亮、引用标记高亮（§9.3）、LaTeX 公式（理工版）。 */
 import { useMemo } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import { Tag } from "antd";
 import { NOTICE_TYPE_NAMES } from "../lib/format";
 
 marked.setOptions({ breaks: true, gfm: true });
+
+// KaTeX 输出的 MathML 标签与样式属性需要放行
+const MATH_TAGS = ["math", "semantics", "annotation", "annotation-xml", "mrow", "mi",
+  "mo", "mn", "msup", "msub", "msubsup", "mfrac", "mtable", "mtr", "mtd", "mstyle",
+  "mspace", "merror", "mpadded", "mphantom", "mtext", "mover", "munder",
+  "munderover", "msqrt", "mroot", "mfenced", "menclose"];
+
+function sanitize(html: string): string {
+  return DOMPurify.sanitize(html, { ADD_TAGS: MATH_TAGS, ADD_ATTR: ["style"] });
+}
+
+/** $...$ 行内公式 / $$...$$ 块级公式 → KaTeX HTML */
+function renderMath(html: string): string {
+  let out = html.replace(/\$\$([\s\S]+?)\$\$/g, (m, tex: string) => {
+    try {
+      return katex.renderToString(tex.trim(),
+        { displayMode: true, throwOnError: false, output: "htmlAndMathml" });
+    } catch { return m; }
+  });
+  out = out.replace(/\$([^$\n]+?)\$/g, (m, tex: string) => {
+    try {
+      return katex.renderToString(tex.trim(),
+        { throwOnError: false, output: "htmlAndMathml" });
+    } catch { return m; }
+  });
+  return out;
+}
 
 const NOTICE_RE = /<NOTICE\s+type="(\w+)">([\s\S]*?)<\/NOTICE>/gi;
 const MARKER_RE = /\[(\d+(?:\.\d+)*-\d+)\]/g;
@@ -26,18 +55,18 @@ export function highlightContent(text: string): string {
 export function MarkdownView({ text, className }: { text: string; className?: string }) {
   const html = useMemo(() => {
     const raw = marked.parse(text || "", { async: false }) as string;
-    return DOMPurify.sanitize(raw, { ADD_ATTR: ["target"] });
+    return sanitize(renderMath(raw));
   }, [text]);
   return <div className={`markdown-view ${className || ""}`} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
-/** 正文视图：先高亮 NOTICE/引用，再渲染 Markdown。 */
+/** 正文视图：先高亮 NOTICE/引用，再渲染 Markdown 与公式。 */
 export function DraftView({ text }: { text: string }) {
   const html = useMemo(() => {
     const highlighted = highlightContent(text);
     // 把高亮后的 HTML 再走 markdown：NOTICE 与标记不包含 markdown 语法，可安全混排
     const raw = marked.parse(highlighted, { async: false }) as string;
-    return DOMPurify.sanitize(raw, { ADD_ATTR: ["target"] });
+    return sanitize(renderMath(raw));
   }, [text]);
   return <div className="markdown-view draft-view" dangerouslySetInnerHTML={{ __html: html }} />;
 }

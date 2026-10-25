@@ -29,8 +29,17 @@ export const DOC_TYPE_NAMES: Record<string, string> = {
   司法案例: "司法案例",
   新闻报道: "新闻报道",
   网络资料: "网络资料",
+  会议论文: "会议论文",
+  专利: "专利",
+  标准: "标准",
+  技术报告: "技术报告",
   其他: "其他",
 };
+
+/** 学科选项（决定提示词风格与章节预设） */
+export const DISCIPLINES = [
+  "法学", "工学", "理学", "管理学", "经济学", "教育学", "文学", "医学", "农学", "其他",
+];
 
 export const STATUS_NAMES: Record<string, { text: string; color: string }> = {
   uploading: { text: "上传中", color: "processing" },

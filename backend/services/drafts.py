@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from .. import db
-from ..ai.prompts import DRAFT_PROMPT, PROMPT_VERSION, render_chunks
+from ..ai.prompts import DRAFT_PROMPT, PROMPT_VERSION, get_style_guide, render_chunks
 from ..config import get_config
 from ..errors import AppError
 from ..textutil import truncate_sentence, truncate_tail
@@ -200,7 +200,10 @@ async def generate_draft_chapter(draft_id: int, draft_chapter_id: int, *, trace:
     else:
         await on_event({"type": "retrieval_empty"})
 
+    discipline = design.get("discipline") or "法学"
     prompt = DRAFT_PROMPT.format(
+        discipline=discipline,
+        style_guide=get_style_guide(discipline),
         paper_title=draft["title"] or "（未定）",
         author=draft["author"] or "（未填）",
         intent=truncate_sentence(design["intent"], 1500),

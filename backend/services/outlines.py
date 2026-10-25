@@ -179,6 +179,7 @@ async def generate_outline(outline_id: int, outline_chapter_id: int, *, trace: s
 
     # 4. 生成
     prompt = OUTLINE_PROMPT.format(
+        discipline=design.get("discipline") or "法学",
         intent=truncate_sentence(design["intent"], 2000),
         title=design["title"] or "（未定）",
         overall_idea=truncate_sentence(design["overall_idea"] or "（无）", 2000),

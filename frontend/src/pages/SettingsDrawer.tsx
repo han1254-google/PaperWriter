@@ -188,11 +188,13 @@ export function SettingsDrawer({ open, onClose }: { open: boolean; onClose: () =
             label: "关于",
             children: (
               <Space direction="vertical" style={{ width: "100%" }}>
-                <Typography.Title level={5}>文科论文写作助手 v0.5.3</Typography.Title>
+                <Typography.Title level={5}>文科论文写作助手 v0.6.0</Typography.Title>
                 <Typography.Paragraph>
-                  面向文科（以法学为主）学生的论文辅助写作工具。本地运行，数据不出本机
-                  （模型调用除外）。本产品不提供代写服务，不承诺规避查重或 AIGC 检测，
-                  请遵守所在学校的学术规范。
+                  面向人文社科与理工科学生的论文辅助写作工具：章节设计时选择学科，
+                  即可获得对应的写作风格、章节结构与字数分配（如工科的
+                  「方法—实验—结果—讨论」结构、LaTeX 公式与图表引用惯例）。
+                  本地运行，数据不出本机（模型调用除外）。本产品不提供代写服务，
+                  不承诺规避查重或 AIGC 检测，请遵守所在学校的学术规范。
                 </Typography.Paragraph>
                 <Typography.Title level={5} type="danger">危险操作</Typography.Title>
                 <Alert

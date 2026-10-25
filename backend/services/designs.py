@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import copy
+import re
 from typing import Any
 
 from .. import db
 from ..ai.jsonutil import parse_json_loose
-from ..ai.prompts import CONFLICT_PROMPT, DESIGN_PROMPT, PROMPT_VERSION, render_chunks
+from ..ai.prompts import (CONFLICT_PROMPT, DESIGN_PROMPT, PROMPT_VERSION,
+                          get_discipline_guide, render_chunks)
 from ..config import get_config
 from ..errors import AppError
 from ..logging_setup import log_backend
@@ -206,12 +208,14 @@ async def generate_design(design_id: int, *, trace: str, job_id: int,
 
     # 3. 提示词与流式生成
     cfg = get_config()
+    discipline = design.get("discipline") or "法学"
     prompt = DESIGN_PROMPT.format(
         intent=truncate_sentence(design["intent"], 3000),
         title=design["title"] or "（未填写，请给出建议）",
         description=truncate_sentence(design["description"] or "（无）", 3000),
         total_words=design["total_word_count"],
-        depth=3, discipline="法学论文", language="中文",
+        depth=3, discipline=discipline, language="中文",
+        discipline_guide=get_discipline_guide(discipline),
         chunks=render_chunks(results, max_chars=cfg.get("limits.design_in_tokens", 60000) * 2))
     buf: list[str] = []
     async for ev in chat_stream(
@@ -261,7 +265,14 @@ async def generate_design(design_id: int, *, trace: str, job_id: int,
                         (real_id, design_id, cid))
 
     overall = str(data.get("overall_idea") or "")[:2000]
-    title = str(data.get("title_suggestion") or design["title"] or "")[:100]
+    # 标题：用户已填时保留用户标题（模型建议不覆盖）；未填时采用模型建议，
+    # 并清洗「建议改为《…》」等带解释的输出
+    if design["title"]:
+        title = design["title"]
+    else:
+        suggestion = str(data.get("title_suggestion") or "")
+        m = re.search(r"[《「“\"]([^》」”\"]{4,60})[》」”\"]", suggestion)
+        title = (m.group(1) if m else suggestion)[:100]
     db.update("design", design_id, {
         "overall_idea": overall,
         "title": title or design["title"],
@@ -349,7 +360,8 @@ def list_designs() -> list[dict[str, Any]]:
 # 编辑 / 保存
 # ---------------------------------------------------------------------------
 def create_design(intent: str, *, total_word_count: int, title: str | None = None,
-                  description: str | None = None) -> dict[str, Any]:
+                  description: str | None = None,
+                  discipline: str = "法学") -> dict[str, Any]:
     if not (3000 <= total_word_count <= 50000):
         raise AppError("VALIDATION_ERROR", message="整体目标字数需在 3000–50000 之间",
                        http_status=422)
@@ -361,6 +373,7 @@ def create_design(intent: str, *, total_word_count: int, title: str | None = Non
         "intent": intent.strip(),
         "description": (description or "").strip()[:5000] or None,
         "total_word_count": total_word_count,
+        "discipline": discipline.strip() or "法学",
         "status": "draft",
         "model": get_config().get("deepseek.model"),
         "prompt_version": PROMPT_VERSION,
@@ -376,7 +389,7 @@ def update_design(design_id: int, fields: dict[str, Any], *, snapshot: bool = Fa
     if snapshot:
         db.save_version("design", design_id, _design_snapshot(design_id))
     data: dict[str, Any] = {"updated_at": db.now()}
-    for k in ("title", "intent", "description", "overall_idea"):
+    for k in ("title", "intent", "description", "overall_idea", "discipline"):
         if k in fields:
             v = fields[k]
             data[k] = v.strip() if isinstance(v, str) else v

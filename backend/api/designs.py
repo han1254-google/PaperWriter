@@ -24,7 +24,8 @@ def create_design(body: dict[str, Any]):
     return ok(designs.create_design(
         body.get("intent", ""),
         total_word_count=int(body.get("total_word_count") or 0),
-        title=body.get("title"), description=body.get("description")))
+        title=body.get("title"), description=body.get("description"),
+        discipline=body.get("discipline", "法学")))
 
 
 @router.get("/designs/{design_id}")
@@ -37,7 +38,7 @@ def update_design(design_id: int, body: dict[str, Any]):
     """保存（autosave=true 不建版本快照）。tree/chunk_links 全量替换。"""
     fields = {k: v for k, v in body.items()
               if k in ("title", "intent", "description", "overall_idea",
-                       "total_word_count", "tree", "chunk_links")}
+                       "total_word_count", "discipline", "tree", "chunk_links")}
     snapshot = not body.get("autosave", False)
     return ok(designs.update_design(design_id, fields, snapshot=snapshot))
 

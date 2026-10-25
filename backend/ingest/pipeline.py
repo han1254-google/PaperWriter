@@ -288,6 +288,9 @@ def db_metadata_dumps(data: dict[str, Any]) -> str:
     meta_fields = ("journal", "volume", "issue", "pages", "doi", "school", "degree",
                    "publisher_place", "isbn", "issuing_authority", "document_no",
                    "effective_date", "court", "case_no", "cause", "url", "access_date",
+                   "conference", "conference_location", "patent_no", "patentee",
+                   "application_date", "grant_date", "standard_no", "issuing_body",
+                   "report_no", "institution",
                    "confidence", "evidence")
     return json.dumps({k: v for k, v in data.items() if k in meta_fields},
                       ensure_ascii=False)

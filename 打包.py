@@ -14,12 +14,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT.parent / "publish"
-NAME = "论文写作助手_v0.5.3"
+NAME = "论文写作助手_v0.6.0"
 STAGE = OUT / NAME
 
 # 与 backend/config.py 的默认配置保持一致；打包时密钥置空、向导状态重置
 DEFAULT_CONFIG = {
-    "app_version": "0.5.3",
+    "app_version": "0.6.0",
     "deepseek": {
         "api_key": "",
         "base_url": "https://api.deepseek.com/v1",

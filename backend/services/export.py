@@ -21,7 +21,8 @@ _ILLEGAL = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 # GB/T 7714-2015 文献类型标识
 _TYPE_CODES = {"学术论文": "[J]", "期刊论文": "[J]", "学位论文": "[D]", "专著": "[M]",
-               "法律法规": "[Z]", "司法案例": "[R]", "新闻报道": "[N]", "网络资料": "[EB/OL]",
+               "法律法规": "[Z]", "司法案例": "[Z]", "新闻报道": "[N]", "网络资料": "[EB/OL]",
+               "会议论文": "[C]", "专利": "[P]", "标准": "[S]", "技术报告": "[R]",
                "其他": "[Z]"}
 
 
@@ -116,7 +117,25 @@ def gb7714_entry(doc: dict[str, Any] | None, metadata: dict[str, Any] | None) ->
         court = meta.get("court") or "[待补充：法院]"
         case_no = meta.get("case_no") or "[待补充：案号]"
         cause = f"（{meta['cause']}）" if meta.get("cause") else ""
-        return f"{court}. {title}{cause}{case_no}[R]. {year}."
+        return f"{court}. {title}{cause}{case_no}[Z]. {year}."
+    if d_type == "会议论文":
+        conf = meta.get("conference") or "[待补充：会议名称]"
+        loc = meta.get("conference_location") or ""
+        pages = meta.get("pages") or ""
+        return f"{authors}. {title}[C]//{conf}. {loc}, {year}: {pages}."
+    if d_type == "专利":
+        patentee = meta.get("patentee") or authors
+        no = meta.get("patent_no") or "[待补充：专利号]"
+        gd = meta.get("grant_date") or year
+        return f"{patentee}. {title}: {no}[P]. {gd}."
+    if d_type == "标准":
+        body = meta.get("issuing_body") or publisher or "[待补充：发布机构]"
+        no = meta.get("standard_no") or "[待补充：标准号]"
+        return f"{body}. {title}: {no}[S]. {year}."
+    if d_type == "技术报告":
+        inst = meta.get("institution") or "[待补充：机构]"
+        no = f"（{meta['report_no']}）" if meta.get("report_no") else ""
+        return f"{authors}. {title}{no}[R]. {inst}, {year}."
     if d_type in ("网络资料", "新闻报道"):
         url = meta.get("url") or "[待补充：URL]"
         access = f"[{meta['access_date']}]" if meta.get("access_date") else ""

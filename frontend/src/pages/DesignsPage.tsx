@@ -5,7 +5,7 @@ import { CopyOutlined, DeleteOutlined, MoreOutlined, PlusOutlined, FileTextOutli
 import { useNavigate } from "react-router-dom";
 import { del, get, post } from "../api/client";
 import type { Design } from "../api/types";
-import { fmtDate } from "../lib/format";
+import { DISCIPLINES, fmtDate } from "../lib/format";
 
 const WORD_PRESETS = [3000, 5000, 8000, 12000, 20000];
 
@@ -23,6 +23,7 @@ export function CreateDesignModal({ open, onClose, onCreated }: {
       const d = await post<Design>("/api/designs", {
         intent: v.intent, total_word_count: v.total_word_count,
         title: v.title || undefined, description: v.description || undefined,
+        discipline: v.discipline || "法学",
       });
       onCreated(d.id);
       onClose();
@@ -38,11 +39,15 @@ export function CreateDesignModal({ open, onClose, onCreated }: {
         <Button type="primary" loading={saving} disabled={!intent || intent.trim().length < 20}
           onClick={submit}>创建</Button>
       </Space>}>
-      <Form form={form} layout="vertical" initialValues={{ total_word_count: 8000 }}>
+      <Form form={form} layout="vertical" initialValues={{ total_word_count: 8000, discipline: "法学" }}>
         <Form.Item label="写作意图（必填，20–2000 字）" name="intent"
           rules={[{ required: true, message: "请填写写作意图" }]}
           extra={<span>研究问题、核心观点、写作目的、范围边界。已输入 {intent?.length || 0} 字</span>}>
           <Input.TextArea rows={5} placeholder="例如：研究《民法典》中个人信息处理的合法性基础，梳理学理争议并结合典型案例提出完善建议……" />
+        </Form.Item>
+        <Form.Item label="学科" name="discipline"
+          extra="决定生成风格、章节结构与字数分配习惯（理工科为 方法/实验/结果 结构）">
+          <Select options={DISCIPLINES.map((d) => ({ value: d, label: d }))} style={{ width: 160 }} />
         </Form.Item>
         <Form.Item label="整体目标字数（必填，仅正文）" required
           extra="课程论文 3000–5000 字；学年论文 6000–10000 字；毕业论文 10000–20000 字（以学校要求为准）">

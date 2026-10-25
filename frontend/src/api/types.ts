@@ -83,6 +83,7 @@ export type Design = {
   description: string | null;
   overall_idea: string | null;
   total_word_count: number;
+  discipline?: string;
   status: "draft" | "confirmed";
   model: string | null;
   prompt_version: string | null;
