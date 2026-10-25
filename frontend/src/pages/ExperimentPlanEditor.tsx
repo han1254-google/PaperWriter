@@ -12,7 +12,7 @@ import { download, get, patch, post } from "../api/client";
 import type { ExperimentPlan, StreamEvent } from "../api/types";
 import { streamJob } from "../lib/stream";
 import { applyEvent, initialState, StreamBox, type StreamState } from "../components/StreamBox";
-import { DraftView } from "../components/MarkdownView";
+import { DraftView, MarkdownView } from "../components/MarkdownView";
 import { fmtDate } from "../lib/format";
 
 export function ExperimentPlanEditor() {
@@ -72,11 +72,23 @@ export function ExperimentPlanEditor() {
     }
   };
 
+  // 注意：hook 必须在所有条件 return 之前调用，否则触发 React #310
+  const citations = plan?.citations || [];
+  const unverified = citations.filter((c) => !c.verified);
+  // 预览模式的证据原文附录（与导出文件同构）
+  const evidenceMd = useMemo(() => {
+    const bound = citations.filter((c) => c.chunk_id);
+    if (!bound.length) return "";
+    const blocks = bound.map((c) => {
+      const meta = [c.doc_authors, c.doc_published_at, c.heading_path,
+        c.page_start ? `第${c.page_start}页` : null].filter(Boolean).join("；");
+      return `### [来源${c.source_no}] ${c.doc_title || "未命名文献"}${meta ? `（${meta}）` : ""}\n\n> ${(c.chunk_text || "").trim()}`;
+    });
+    return "\n\n## 证据原文\n\n" + blocks.join("\n\n");
+  }, [citations]);
+
   if (loading && !plan) return <Spin style={{ display: "block", margin: "80px auto" }} />;
   if (!plan) return <Empty style={{ marginTop: 80 }} />;
-
-  const citations = plan.citations || [];
-  const unverified = citations.filter((c) => !c.verified);
 
   return (
     <div className="editor-page">
@@ -177,7 +189,10 @@ export function ExperimentPlanEditor() {
             }>
             {plan.content ? (
               preview ? (
-                <DraftView text={plan.content} />
+                <>
+                  <DraftView text={plan.content} />
+                  {evidenceMd && <MarkdownView text={evidenceMd} />}
+                </>
               ) : (
                 <Input.TextArea
                   value={plan.content || ""}
