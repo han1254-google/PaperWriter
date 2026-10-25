@@ -14,6 +14,8 @@ import { OutlinesPage, AllOutlinesPage } from "./pages/OutlinesPage";
 import { OutlineEditor } from "./pages/OutlineEditor";
 import { DraftsPage, AllDraftsPage } from "./pages/DraftsPage";
 import { DraftEditor } from "./pages/DraftEditor";
+import { ExperimentPlansPage } from "./pages/ExperimentPlans";
+import { ExperimentPlanEditor } from "./pages/ExperimentPlanEditor";
 
 function NavShell() {
   const location = useLocation();
@@ -26,7 +28,8 @@ function NavShell() {
   const isDesignModule =
     location.pathname.startsWith("/designs") ||
     location.pathname.startsWith("/outlines") ||
-    location.pathname.startsWith("/drafts");
+    location.pathname.startsWith("/drafts") ||
+    location.pathname.startsWith("/plans");
   const isFiles = location.pathname.startsWith("/files");
   const navigate = useNavigate();
 
@@ -45,6 +48,7 @@ function NavShell() {
                 { key: "/designs", label: "章节设计（整体思路与章节树）" },
                 { key: "/outlines", label: "大纲设计（逐节写作方案）" },
                 { key: "/drafts", label: "章节创作（逐章写正文）" },
+                { key: "/plans", label: "实验方案设计（理工版）" },
               ],
               selectedKeys: isDesignModule ? [location.pathname.split("/")[1]] : [],
               onClick: ({ key }) => navigate(key),
@@ -87,6 +91,8 @@ function NavShell() {
             <Route path="/drafts" element={<DraftsPage />} />
             <Route path="/drafts/all" element={<AllDraftsPage />} />
             <Route path="/drafts/:id" element={<DraftEditor />} />
+            <Route path="/plans" element={<ExperimentPlansPage />} />
+            <Route path="/plans/:id" element={<ExperimentPlanEditor />} />
             <Route path="*" element={<FilesPage />} />
           </Routes>
         </ErrorBoundary>

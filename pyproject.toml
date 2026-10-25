@@ -1,6 +1,6 @@
 [project]
 name = "law-paper"
-version = "0.6.0"
+version = "0.7.0"
 description = "文科生论文辅助写作工具（本地网页应用）"
 requires-python = ">=3.11"
 dependencies = [

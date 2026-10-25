@@ -263,6 +263,42 @@ export type ExportChecks = {
   can_final_export: boolean;
 };
 
+export type PlanCitation = {
+  id: number;
+  plan_id: number;
+  source_no: number;
+  chunk_id: number | null;
+  quote: string | null;
+  verified: number;
+  data_note: string | null;
+  chunk_text?: string | null;
+  heading_path?: string | null;
+  page_start?: number | null;
+  page_end?: number | null;
+  doc_title?: string | null;
+  doc_authors?: string | null;
+  doc_published_at?: string | null;
+  doc_doc_type?: string | null;
+  doc_id?: number | null;
+};
+
+export type ExperimentPlan = {
+  id: number;
+  title: string | null;
+  research_idea: string;
+  intent?: Record<string, unknown> | null;
+  content: string | null;
+  model: string | null;
+  prompt_version: string | null;
+  status: string;
+  citation_count?: number;
+  citations?: PlanCitation[];
+  verified_count?: number;
+  invalid_count?: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type StreamEvent =
   | { type: "ping" | "heartbeat_end" }
   | { type: "progress"; message: string }

@@ -188,7 +188,7 @@ export function SettingsDrawer({ open, onClose }: { open: boolean; onClose: () =
             label: "关于",
             children: (
               <Space direction="vertical" style={{ width: "100%" }}>
-                <Typography.Title level={5}>文科论文写作助手 v0.6.0</Typography.Title>
+                <Typography.Title level={5}>文科论文写作助手 v0.7.0</Typography.Title>
                 <Typography.Paragraph>
                   面向人文社科与理工科学生的论文辅助写作工具：章节设计时选择学科，
                   即可获得对应的写作风格、章节结构与字数分配（如工科的

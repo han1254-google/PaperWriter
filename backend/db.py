@@ -18,7 +18,7 @@ from typing import Any, Iterator
 from .errors import AppError
 from .paths import get_data_dir
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_V1 = """
 CREATE TABLE category (
@@ -233,6 +233,33 @@ MIGRATIONS: list[tuple[int, str]] = [
     (1, SCHEMA_V1),
     # v2：章节设计增加学科字段（理工版：学科决定提示词风格与章节预设）
     (2, "ALTER TABLE design ADD COLUMN discipline TEXT DEFAULT '法学';"),
+    # v3：实验方案设计（理工版）：方案 + 溯源引用（[来源N] 绑定）
+    (3, """
+CREATE TABLE experiment_plan (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT,
+  research_idea TEXT NOT NULL,
+  intent_json TEXT,
+  content TEXT,
+  model TEXT,
+  prompt_version TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+
+CREATE TABLE plan_citation (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id INTEGER NOT NULL REFERENCES experiment_plan(id) ON DELETE CASCADE,
+  source_no INTEGER NOT NULL,
+  chunk_id INTEGER REFERENCES chunk(id) ON DELETE SET NULL,
+  quote TEXT,
+  verified INTEGER NOT NULL DEFAULT 1,
+  data_note TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(plan_id, source_no)
+);
+CREATE INDEX idx_plan_citation_plan ON plan_citation(plan_id);
+"""),
 ]
 
 

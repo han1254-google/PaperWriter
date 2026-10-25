@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import APP_NAME, APP_VERSION
-from .api import deps, designs as api_designs, drafts as api_drafts, files as api_files
+from .api import deps, designs as api_designs, drafts as api_drafts, experiments as api_experiments, files as api_files
 from .api import outlines as api_outlines, settings as api_settings, system as api_system
 from .config import get_config
 from .db import init_db
@@ -60,7 +60,8 @@ app = FastAPI(title=APP_NAME, version=APP_VERSION, lifespan=lifespan)
 deps.register(app)
 
 for r in (api_system.router, api_files.router, api_designs.router,
-          api_outlines.router, api_drafts.router, api_settings.router):
+          api_outlines.router, api_drafts.router, api_experiments.router,
+          api_settings.router):
     app.include_router(r)
 
 
