@@ -1,0 +1,19 @@
+[project]
+name = "law-paper"
+version = "0.5.1"
+description = "文科生论文辅助写作工具（本地网页应用）"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.8",
+    "httpx>=0.27",
+    "PyMuPDF>=1.24",
+    "python-docx>=1.1",
+    "numpy>=1.26",
+    "sqlite-vec>=0.1.6",
+]
+
+[tool.uv]
+package = false

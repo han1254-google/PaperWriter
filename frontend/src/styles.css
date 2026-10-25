@@ -1,0 +1,174 @@
+/* 全局样式 */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f5f6fa;
+}
+
+.app-layout { min-height: 100vh; }
+.app-header {
+  background: #fff !important;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 24px;
+  height: 52px;
+  line-height: 52px;
+}
+.app-title { font-weight: 700; font-size: 16px; color: #2f54eb; white-space: nowrap; }
+.app-nav { display: flex; gap: 8px; }
+.app-nav-item {
+  padding: 4px 12px;
+  border-radius: 6px;
+  color: #555;
+  text-decoration: none;
+  font-size: 14px;
+}
+.app-nav-item:hover { background: #f0f2ff; color: #2f54eb; }
+.app-nav-item.active { background: #2f54eb; color: #fff; }
+.app-content { padding: 16px 24px 48px; max-width: 1440px; width: 100%; margin: 0 auto; }
+.app-loading { display: flex; justify-content: center; align-items: center; height: 100vh; color: #999; }
+
+/* 工具栏 */
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* 卡片网格 */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.doc-card .ant-card-head-title { font-size: 14px; }
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* 文件入库布局 */
+.files-page { display: flex; gap: 16px; }
+.files-side { width: 240px; flex-shrink: 0; }
+.files-main { flex: 1; min-width: 0; }
+
+/* 列表页 */
+.list-page { min-height: 60vh; }
+
+/* 章节树 */
+.tree-node { display: flex; align-items: center; gap: 6px; width: 100%; padding-right: 4px; }
+.tree-node-number {
+  color: #2f54eb; font-weight: 600; font-size: 12px; flex-shrink: 0;
+  min-width: 34px; text-align: right;
+}
+.tree-node-title { flex: 1; min-width: 0; font-size: 13px; }
+.tree-node-budget { flex-shrink: 0; }
+.tree-node-ops { flex-shrink: 0; opacity: 0.25; transition: opacity .15s; }
+.tree-node:hover .tree-node-ops { opacity: 1; }
+.outline-tree-node { display: flex; align-items: center; gap: 6px; width: 100%; }
+.outline-tree-node.leaf { cursor: pointer; }
+.outline-tree-node.leaf:hover { color: #2f54eb; }
+
+/* 预算条 */
+.budget-bar { margin-top: 12px; padding: 8px 12px; background: #fafafa; border-radius: 6px; }
+
+/* 流式框 */
+.stream-box {
+  border: 1px solid #d9d9ff;
+  background: #f9f9ff;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.stream-box-head { display: flex; align-items: center; margin-bottom: 4px; }
+.stream-chunks { margin: 6px 0; }
+.stream-raw pre {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+  margin: 4px 0 0;
+}
+
+/* 片段卡片 */
+.chunk-card { border: 1px solid #eee; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: #fff; }
+.chunk-card-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.chunk-card-title { font-weight: 600; }
+.chunk-card-body {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #eee;
+  font-size: 13px;
+  color: #444;
+  max-height: 300px;
+  overflow: auto;
+}
+
+/* Markdown 视图 */
+.markdown-view { line-height: 1.7; font-size: 14px; }
+.markdown-view h1 { font-size: 22px; }
+.markdown-view h2 { font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+.markdown-view h3 { font-size: 15px; }
+.markdown-view table { border-collapse: collapse; margin: 8px 0; }
+.markdown-view table td, .markdown-view table th { border: 1px solid #ddd; padding: 4px 8px; font-size: 13px; }
+.markdown-view blockquote { border-left: 3px solid #d9d9d9; margin: 8px 0; padding: 2px 12px; color: #666; }
+.draft-view { font-size: 15px; }
+
+/* 引用与提示块 */
+.cite-marker {
+  background: #e6f4ff;
+  color: #0958d9;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 600;
+  font-size: 0.92em;
+}
+.cite-marker.invalid { background: #fff1f0; color: #cf1322; }
+.notice-block {
+  display: block;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-left: 3px solid #fa8c16;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 8px 0;
+  color: #7a4a00;
+  font-size: 0.95em;
+}
+.notice-tag {
+  display: inline-block;
+  background: #fa8c16;
+  color: #fff;
+  border-radius: 3px;
+  padding: 0 6px;
+  margin-right: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 保存全部 */
+.save-all-bar {
+  position: fixed;
+  right: 32px;
+  bottom: 24px;
+  z-index: 100;
+}
+
+.chunk-selected { background: #e6f4ff !important; border-radius: 6px; }
+
+/* 编辑器页面 */
+.editor-page { min-height: 60vh; }

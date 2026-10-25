@@ -1,0 +1,236 @@
+{
+  "$meta": {
+    "description": "错误文案单一来源（产品文档 §11.3）。后端启动时加载，前端构建时导入。message 为内部描述（写日志），userMessage 与 suggestion 面向用户。",
+    "fallback": { "userMessage": "发生了未预期的问题，已记录日志", "suggestion": "请重试；仍失败可在「设置 → 日志与诊断」导出诊断包反馈" }
+  },
+  "CFG_KEY_MISSING": {
+    "message": "api key not configured",
+    "userMessage": "还没有配置模型服务密钥（API Key）",
+    "suggestion": "去「设置 → 模型与 API Key」填写"
+  },
+  "CFG_KEY_INVALID": {
+    "message": "api key rejected by provider",
+    "userMessage": "密钥无效或已过期",
+    "suggestion": "检查是否复制完整，或去服务商控制台重新生成"
+  },
+  "CFG_CONFIG_CORRUPT": {
+    "message": "config.json corrupt",
+    "userMessage": "配置文件损坏，已用默认配置启动并备份原文件",
+    "suggestion": "在「设置 → 模型与 API Key」重新填写密钥"
+  },
+  "CFG_MODEL_DENIED": {
+    "message": "model not accessible with this key",
+    "userMessage": "当前密钥没有该模型的访问权限",
+    "suggestion": "在服务商控制台开通对应模型，或更换可用模型"
+  },
+  "NET_TIMEOUT": {
+    "message": "network request timed out",
+    "userMessage": "网络请求超时",
+    "suggestion": "检查网络或代理设置后点击重试"
+  },
+  "NET_DNS": {
+    "message": "dns resolution failed",
+    "userMessage": "无法解析服务商域名",
+    "suggestion": "检查网络连接与 DNS 设置"
+  },
+  "NET_PROXY": {
+    "message": "proxy error",
+    "userMessage": "网络代理出错",
+    "suggestion": "检查系统代理设置，或暂时关闭代理后重试"
+  },
+  "NET_OFFLINE": {
+    "message": "no network connectivity",
+    "userMessage": "当前网络不可用",
+    "suggestion": "恢复网络连接后重试"
+  },
+  "AI_RATE_LIMIT": {
+    "message": "provider rate limited",
+    "userMessage": "请求过于频繁，服务商限流",
+    "suggestion": "稍等片刻后会自动重试；或减少同时运行的任务"
+  },
+  "AI_BALANCE": {
+    "message": "insufficient balance",
+    "userMessage": "模型账户余额不足",
+    "suggestion": "到服务商控制台充值后重试；已生成的内容不会丢失"
+  },
+  "AI_CONTEXT_LENGTH": {
+    "message": "context length exceeded",
+    "userMessage": "选中的材料过多，超出模型上下文上限",
+    "suggestion": "缩小文献检索范围，或降低章节目标字数后重试"
+  },
+  "AI_BAD_JSON": {
+    "message": "model returned invalid json",
+    "userMessage": "模型返回的内容格式不正确，已自动修复失败",
+    "suggestion": "点击「重试」重新生成；仍失败可检查检索范围后重试"
+  },
+  "AI_TIMEOUT": {
+    "message": "model request timed out",
+    "userMessage": "模型响应超时",
+    "suggestion": "点击重试；若频繁超时可缩小检索范围或目标字数"
+  },
+  "AI_CONTENT_FILTER": {
+    "message": "content filtered by provider",
+    "userMessage": "内容未通过服务商安全检查",
+    "suggestion": "调整输入内容后重试"
+  },
+  "AI_SERVER": {
+    "message": "provider server error",
+    "userMessage": "模型服务暂时不可用",
+    "suggestion": "稍后重试；可在服务商状态页查看是否故障"
+  },
+  "AI_EMPTY_OUTPUT": {
+    "message": "model returned empty content",
+    "userMessage": "模型返回了空内容",
+    "suggestion": "点击重试；已生成的内容保留"
+  },
+  "FILE_TOO_LARGE": {
+    "message": "file exceeds size limit",
+    "userMessage": "文件过大，超过大小限制",
+    "suggestion": "拆分文件或压缩后重新上传"
+  },
+  "FILE_TYPE_UNSUPPORTED": {
+    "message": "file type not supported",
+    "userMessage": "暂不支持该文件格式",
+    "suggestion": "支持 .docx、.doc、.pdf；可将文件另存为 .docx 或 .pdf 后重试"
+  },
+  "FILE_ENCRYPTED": {
+    "message": "pdf encrypted",
+    "userMessage": "PDF 已加密，暂时无法读取",
+    "suggestion": "解除加密后重新上传"
+  },
+  "FILE_CORRUPT": {
+    "message": "file corrupt or unreadable",
+    "userMessage": "文件已损坏或无法打开",
+    "suggestion": "确认文件能正常打开后重新上传"
+  },
+  "FILE_PARSE_FAILED": {
+    "message": "file parse failed",
+    "userMessage": "文件解析失败",
+    "suggestion": "确认文件能正常打开；.doc 可先另存为 .docx 后重试"
+  },
+  "FILE_EMPTY_PARSE": {
+    "message": "no text extracted from file",
+    "userMessage": "未能从文件中提取到文字",
+    "suggestion": "扫描件请提供带文字层的 PDF；也可手动填写元数据"
+  },
+  "FILE_DUPLICATE": {
+    "message": "duplicate file detected",
+    "userMessage": "该文件已存在",
+    "suggestion": "选择「跳过」「覆盖」或「另存为副本」"
+  },
+  "FILE_DOC_CONVERT_FAILED": {
+    "message": ".doc conversion failed",
+    "userMessage": ".doc 文件转换失败",
+    "suggestion": "请用 Word/WPS 打开后另存为 .docx，或导出为 PDF 后重试"
+  },
+  "DB_OPEN_FAILED": {
+    "message": "cannot open database",
+    "userMessage": "数据库无法打开",
+    "suggestion": "在「设置 → 日志与诊断」查看自检结果；必要时导出诊断包"
+  },
+  "DB_MIGRATION_FAILED": {
+    "message": "database migration failed",
+    "userMessage": "数据库升级失败",
+    "suggestion": "保留原数据库文件，导出诊断包反馈"
+  },
+  "DB_DISK_FULL": {
+    "message": "disk full",
+    "userMessage": "磁盘空间不足",
+    "suggestion": "清理磁盘空间，或备份后更换数据目录"
+  },
+  "DB_WRITE_FAILED": {
+    "message": "database write failed",
+    "userMessage": "数据保存失败",
+    "suggestion": "检查磁盘空间后重试"
+  },
+  "JOB_CANCELLED": {
+    "message": "job cancelled",
+    "userMessage": "任务已停止",
+    "suggestion": "可修改内容后重新生成"
+  },
+  "JOB_TIMEOUT": {
+    "message": "job timed out",
+    "userMessage": "任务执行超时",
+    "suggestion": "缩小检索范围或目标字数后重试"
+  },
+  "JOB_RETRY_EXHAUSTED": {
+    "message": "retries exhausted",
+    "userMessage": "多次重试后任务仍然失败",
+    "suggestion": "稍后重试；导出诊断包可帮助排查"
+  },
+  "JOB_INTERRUPTED": {
+    "message": "job interrupted by restart",
+    "userMessage": "任务因程序重启而中断",
+    "suggestion": "点击重试重新执行"
+  },
+  "EXPORT_WRITE_FAILED": {
+    "message": "export write failed",
+    "userMessage": "导出文件写入失败",
+    "suggestion": "检查磁盘空间后重试"
+  },
+  "EXPORT_NO_CONTENT": {
+    "message": "nothing to export",
+    "userMessage": "没有可导出的内容",
+    "suggestion": "请先生成至少一章正文"
+  },
+  "EXPORT_INVALID_CITATION": {
+    "message": "invalid citations block final export",
+    "userMessage": "存在无法映射的引用，不能导出定稿",
+    "suggestion": "先处理标红的引用，或改用「工作稿导出」"
+  },
+  "SYS_UNCAUGHT": {
+    "message": "unhandled backend exception",
+    "userMessage": "后端遇到问题，已记录日志",
+    "suggestion": "重启启动脚本；仍失败则导出诊断包反馈"
+  },
+  "SYS_API_FAILED": {
+    "message": "backend api failed",
+    "userMessage": "后端没有响应",
+    "suggestion": "确认启动脚本窗口仍在运行，刷新页面或重新双击启动脚本"
+  },
+  "SYS_LOG_WRITE_FAILED": {
+    "message": "log write failed",
+    "userMessage": "日志写入异常，不影响主要功能",
+    "suggestion": "可在「设置 → 日志与诊断」查看详情"
+  },
+  "SYS_CRASH": {
+    "message": "process crash recorded",
+    "userMessage": "程序曾异常退出，已记录崩溃信息",
+    "suggestion": "重启启动脚本；仍失败则导出诊断包反馈"
+  },
+  "UI_RENDER_ERROR": {
+    "message": "frontend render error",
+    "userMessage": "页面渲染出错",
+    "suggestion": "点击刷新；仍失败可复制诊断信息反馈"
+  },
+  "UI_UNHANDLED_REJECTION": {
+    "message": "frontend unhandled promise rejection",
+    "userMessage": "页面执行出错",
+    "suggestion": "点击刷新页面重试"
+  },
+  "VALIDATION_ERROR": {
+    "message": "request validation failed",
+    "userMessage": "输入内容不符合要求",
+    "suggestion": "按页面提示修改后重试"
+  },
+  "NOT_FOUND": {
+    "message": "resource not found",
+    "userMessage": "要操作的内容不存在或已被删除",
+    "suggestion": "刷新页面查看最新列表"
+  },
+  "UPSTREAM_IN_USE": {
+    "message": "entity has downstream records",
+    "userMessage": "该内容已被下游引用，暂时不能删除",
+    "suggestion": "请先删除引用它的大纲或创作稿"
+  },
+  "UPSTREAM_NOT_READY": {
+    "message": "upstream entity not ready",
+    "userMessage": "上游内容尚未完成，不能进行此操作",
+    "suggestion": "请先完成上游步骤（如确认章节设计、生成大纲）"
+  },
+  "JOB_ALREADY_RUNNING": {
+    "message": "another job is running for this entity",
+    "userMessage": "当前已有任务在进行中",
+    "suggestion": "等待当前任务完成或点击「停止」后再试"
+  }
+}

@@ -1,0 +1,25 @@
+# 数据目录（数据库、原始文件、日志、配置）
+data/
+!data/.gitkeep
+
+# 前端构建产物与依赖
+frontend/node_modules/
+frontend/dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 测试产物
+frontend/smoke-shots/
+__pycache__/
+*.pyc
+
+# 编辑器与系统
+.vscode/
+.idea/
+.history/
+.DS_Store
+Thumbs.db
