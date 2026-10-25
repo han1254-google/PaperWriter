@@ -19,6 +19,7 @@ from ..config import get_config
 from ..errors import AppError
 from ..logging_setup import log_backend
 from ..paths import get_data_dir
+from ..textutil import truncate_sentence
 from .chunker import chunk_document, chunk_to_row
 from .parsers import parse_file
 
@@ -227,7 +228,7 @@ async def _extract_metadata(doc_id: int, trace: str, job_id: int) -> None:
     head_rows = db.fetch_all(
         "SELECT text FROM chunk WHERE document_id=? AND chunk_type IN ('body','abstract') "
         "ORDER BY chunk_index LIMIT 6", (doc_id,))
-    text = "\n".join(r["text"] for r in head_rows)[:6000]
+    text = truncate_sentence("\n".join(r["text"] for r in head_rows), 6000)
     if not text.strip():
         return
     get_runner().check_cancel(job_id)
@@ -257,7 +258,7 @@ async def _extract_metadata(doc_id: int, trace: str, job_id: int) -> None:
                     body_rows = db.fetch_all(
                         "SELECT text FROM chunk WHERE document_id=? AND chunk_type='body' "
                         "ORDER BY chunk_index LIMIT 3", (doc_id,))
-                    summary_src = "\n".join(r["text"] for r in body_rows)[:3000]
+                    summary_src = truncate_sentence("\n".join(r["text"] for r in body_rows), 3000)
                     if summary_src:
                         meta_str = "；".join(f"{k}: {v}" for k, v in
                                              (("标题", data.get("title")), ("作者", data.get("authors")),

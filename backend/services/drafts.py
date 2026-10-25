@@ -9,6 +9,7 @@ from .. import db
 from ..ai.prompts import DRAFT_PROMPT, PROMPT_VERSION, render_chunks
 from ..config import get_config
 from ..errors import AppError
+from ..textutil import truncate_sentence, truncate_tail
 
 MARKER_RE = re.compile(r"\[(\d+(?:\.\d+)*)-(\d+)\]")
 NOTICE_RE = re.compile(r'<NOTICE\s+type="(\w+)">(.*?)</NOTICE>', re.DOTALL | re.IGNORECASE)
@@ -184,7 +185,7 @@ async def generate_draft_chapter(draft_id: int, draft_chapter_id: int, *, trace:
         "WHERE ock.outline_chapter_id=? AND ock.selected=1 ORDER BY ock.score DESC",
         (dc["outline_chapter_id"],))
     extra = await hybrid_search(
-        [f"{oc['chapter_title']} {(oc['content'] or '')[:500]}"],
+        [f"{oc['chapter_title']} {truncate_sentence(oc['content'] or '', 500)}"],
         scope={"all": True}, trace=trace,
         top_n=cfg.get("limits.draft_extra_candidates", 50))
     linked_ids = {c["id"] for c in linked}
@@ -202,10 +203,10 @@ async def generate_draft_chapter(draft_id: int, draft_chapter_id: int, *, trace:
     prompt = DRAFT_PROMPT.format(
         paper_title=draft["title"] or "（未定）",
         author=draft["author"] or "（未填）",
-        intent=design["intent"][:1500],
-        overall_idea=(design["overall_idea"] or "（无）")[:1500],
+        intent=truncate_sentence(design["intent"], 1500),
+        overall_idea=truncate_sentence(design["overall_idea"] or "（无）", 1500),
         tree=tree_text,
-        outline_content=oc["content"][:3000],
+        outline_content=truncate_sentence(oc["content"], 3000),
         chapter_idea=oc["chapter_idea_snapshot"] or "（无）",
         chunks=chunks_text or "（没有检索到相关文献材料，请多用 <NOTICE> 提示补充）",
         chapter_number=oc["chapter_number"],
@@ -271,11 +272,11 @@ def _prev_context(draft_id: int, sort: int) -> str:
     if not chapters:
         return ""
     prev = chapters[-1]
-    prev_tail = (prev["content"] or "")[-500:]
+    prev_tail = truncate_tail(prev["content"] or "", 500)
     earlier = ""
     for c in chapters[:-1]:
         earlier += f"[{c['chapter_number']} {c['chapter_title']}要点] " + \
-                   (c["content"] or "")[:120] + "\n"
+                   truncate_sentence(c["content"] or "", 120) + "\n"
     return f"{earlier}……\n（上一节结尾）{prev_tail}"
 
 

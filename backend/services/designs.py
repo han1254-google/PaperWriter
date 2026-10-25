@@ -10,6 +10,7 @@ from ..ai.prompts import CONFLICT_PROMPT, DESIGN_PROMPT, PROMPT_VERSION, render_
 from ..config import get_config
 from ..errors import AppError
 from ..logging_setup import log_backend
+from ..textutil import truncate_sentence
 
 MAX_DEPTH = 4
 MAX_NODES = 200
@@ -206,9 +207,9 @@ async def generate_design(design_id: int, *, trace: str, job_id: int,
     # 3. 提示词与流式生成
     cfg = get_config()
     prompt = DESIGN_PROMPT.format(
-        intent=design["intent"][:3000],
+        intent=truncate_sentence(design["intent"], 3000),
         title=design["title"] or "（未填写，请给出建议）",
-        description=(design["description"] or "（无）")[:3000],
+        description=truncate_sentence(design["description"] or "（无）", 3000),
         total_words=design["total_word_count"],
         depth=3, discipline="法学论文", language="中文",
         chunks=render_chunks(results, max_chars=cfg.get("limits.design_in_tokens", 60000) * 2))
@@ -437,9 +438,9 @@ async def conflict_check(design_id: int, *, trace: str) -> dict[str, Any]:
     try:
         content = await chat(
             [{"role": "user", "content": CONFLICT_PROMPT.format(
-                intent=design["intent"][:2000],
-                overall_idea=(design["overall_idea"] or "（未填写）")[:2000],
-                tree=tree_text[:4000])}],
+                intent=truncate_sentence(design["intent"], 2000),
+                overall_idea=truncate_sentence(design["overall_idea"] or "（未填写）", 2000),
+                tree=truncate_sentence(tree_text, 4000))}],
             trace=trace, module="conflict_check", prompt_version=PROMPT_VERSION,
             json_mode=True, temperature=0.2)
         data, repair = parse_json_loose(content)

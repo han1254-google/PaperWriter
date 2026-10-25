@@ -13,6 +13,7 @@ from typing import Any
 from .. import db
 from ..config import get_config
 from ..logging_setup import log_backend
+from ..textutil import truncate_sentence
 from .vector import get_index
 
 EXCLUDED_TYPES = ("reference", "toc")
@@ -255,7 +256,8 @@ async def expand_queries(intent: str, extra: str, trace: str) -> list[str]:
 
     content = await chat(
         [{"role": "user", "content": QUERY_EXPANSION_PROMPT.format(
-            intent=intent[:2000], extra=(extra or "无")[:2000])}],
+            intent=truncate_sentence(intent, 2000),
+            extra=truncate_sentence(extra or "无", 2000))}],
         trace=trace, module="query_expansion", prompt_version=PROMPT_VERSION,
         json_mode=True, temperature=0.3)
     data, repair = parse_json_loose(content)

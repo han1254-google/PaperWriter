@@ -1,23 +1,28 @@
-"""分块规则（产品文档 §5.4）。
+"""分块规则（产品文档 §5.4）—— 按内容切分，段落优先。
 
-- 中文约 500–800 字 / 英文约 300–500 词；相邻片段重叠 80–120 字。
-- 优先在段落、标题边界切分；表格整体保留；超长块按句切。
-- 记录 heading_path、page_start/end、para_start/end。
-- 默认检索排除 reference / toc（检索时过滤）。
+原则（按优先级）：
+1. 标题边界：每个标题开启新片段，标题文字进入片段；
+2. 段落完整：完整的段落尽量不拆开——宁可片段到 1000–2000 字，
+   也不把一段连贯论述腰斩；
+3. 整段超过硬上限（约 1000 tokens，低于规范 1200 token 上限）时，
+   才在句末标点处切分，相邻片段重叠 80–120 字；
+4. 目录/参考文献/表格/脚注独立成块，保持完整（仅绝对上限硬切）。
+
+段落级对齐的片段之间不设重叠：段落本身是完整内容单元，
+重叠是为「滑动窗口切分」设计的，按内容切分时不再需要。
 """
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from .parsers import Block, ParsedDoc
 
-CHUNK_MIN = 300          # 低于此长度仍单独成块
-CHUNK_TARGET = 600       # 目标长度（中文字符）
-CHUNK_MAX = 850          # 超过即切分
-OVERLAP = 100            # 重叠字符
-MAX_CHUNK_CHARS = 2400   # 约 1200 tokens（中文 1 字 ≈ 0.5 token）
+CHUNK_SOFT_MAX = 1000   # 软上限：段落完整时允许的片段长度（目标区间 500–1000 字）
+CHUNK_HARD_MAX = 2000   # 硬上限：整段超过才在段内按句切分（约 1000 tokens）
+OVERLAP = 100           # 段内切分时的重叠字符
+MAX_CHUNK_CHARS = 2400  # 特殊块（表格/脚注等）的绝对上限（约 1200 tokens）
 
 
 @dataclass
@@ -31,22 +36,13 @@ class Chunk:
     para_end: int | None = None
 
 
-def _is_english(text: str) -> bool:
-    letters = sum(1 for c in text if c.isalpha())
-    if not letters:
-        return False
-    ascii_letters = sum(1 for c in text if c.isascii() and c.isalpha())
-    return ascii_letters / letters > 0.7
-
-
 _SENT_END = re.compile(r"(?<=[。！？!?；;])|(?<=\.\s)|(?<=\n)")
 
 
 def _split_long(text: str, page: int | None, heading: str, btype: str,
                 para_no: int) -> list[Chunk]:
-    """超长块切分：正文按句边界切到 ~600 字；表格/脚注等整体保留，仅硬上限切分。"""
+    """超长内容切分：正文按句末标点切（带重叠）；表格/脚注等仅在绝对上限硬切。"""
     text = re.sub(r"\n{2,}", "\n", text).strip()
-    # 表格 / 脚注 / 参考文献 / 目录：整体保留，只受绝对上限约束
     if btype in ("table", "footnote", "reference", "toc"):
         if len(text) <= MAX_CHUNK_CHARS:
             return [Chunk(text=text, chunk_type=btype, heading_path=heading,
@@ -54,12 +50,12 @@ def _split_long(text: str, page: int | None, heading: str, btype: str,
                           para_start=para_no, para_end=para_no)]
         out = []
         for i in range(0, len(text), MAX_CHUNK_CHARS - OVERLAP):
-            seg = text[i : i + MAX_CHUNK_CHARS]
-            out.append(Chunk(text=seg.strip(), chunk_type=btype, heading_path=heading,
+            out.append(Chunk(text=text[i : i + MAX_CHUNK_CHARS].strip(),
+                             chunk_type=btype, heading_path=heading,
                              page_start=page, page_end=page,
                              para_start=para_no, para_end=para_no))
         return out
-    if len(text) <= CHUNK_MAX:
+    if len(text) <= CHUNK_HARD_MAX:
         return [Chunk(text=text, chunk_type=btype, heading_path=heading,
                       page_start=page, page_end=page,
                       para_start=para_no, para_end=para_no)]
@@ -67,19 +63,19 @@ def _split_long(text: str, page: int | None, heading: str, btype: str,
     chunks: list[Chunk] = []
     cur = ""
     for s in sentences:
-        if len(cur) + len(s) > CHUNK_MAX and len(cur) >= CHUNK_MIN:
+        if len(cur) + len(s) > CHUNK_SOFT_MAX and len(cur) >= CHUNK_SOFT_MAX // 3:
             chunks.append(Chunk(text=cur.strip(), chunk_type=btype, heading_path=heading,
                                 page_start=page, page_end=page,
                                 para_start=para_no, para_end=para_no))
             cur = cur[-OVERLAP:] if len(cur) > OVERLAP else cur
         cur += s
         # 单句过长（无句界）：硬切，携带重叠
-        while len(cur) > CHUNK_MAX:
-            cut = cur[:CHUNK_TARGET]
+        while len(cur) > CHUNK_HARD_MAX:
+            cut = cur[:CHUNK_SOFT_MAX]
             chunks.append(Chunk(text=cut.strip(), chunk_type=btype, heading_path=heading,
                                 page_start=page, page_end=page,
                                 para_start=para_no, para_end=para_no))
-            cur = cur[CHUNK_TARGET - OVERLAP:]
+            cur = cur[CHUNK_SOFT_MAX - OVERLAP:]
     if cur.strip():
         chunks.append(Chunk(text=cur.strip(), chunk_type=btype, heading_path=heading,
                             page_start=page, page_end=page,
@@ -88,90 +84,75 @@ def _split_long(text: str, page: int | None, heading: str, btype: str,
 
 
 def chunk_document(parsed: ParsedDoc) -> list[Chunk]:
-    """块级分块：标题边界优先，段落聚合，重叠 80–120 字。"""
+    """按内容切分：段落完整优先，标题/段落边界天然成为片段边界。"""
     chunks: list[Chunk] = []
-    buf_text = ""
-    buf_type = "body"
-    buf_heading = ""
-    buf_page_start: int | None = None
-    buf_page_end: int | None = None
-    buf_para_start: int | None = None
-    buf_para_end: int | None = None
+    buf: list[str] = []
+    meta: dict[str, Any] = {}
 
     def flush() -> None:
-        nonlocal buf_text
-        if not buf_text.strip():
+        nonlocal buf
+        if not buf:
             return
-        pieces = _split_long(buf_text, buf_page_start, buf_heading, buf_type, buf_para_start or 0)
-        for i, p in enumerate(pieces):
-            if len(pieces) > 1:
-                p.page_start = buf_page_start
-                p.page_end = buf_page_end
-                p.para_start = buf_para_start
-                p.para_end = buf_para_end
-            chunks.append(p)
-        buf_text = ""
-
-    def boundary_cost(block: Block) -> int:
-        # 标题 / 表格 / 类型变化 → 强边界
-        if block.block_type == "heading":
-            return 3
-        if block.block_type == "table":
-            return 3
-        if block.block_type != buf_type:
-            return 2
-        return 1
+        text = "\n".join(buf).strip()
+        if text:
+            btype = meta.get("type", "body")
+            if len(text) > CHUNK_HARD_MAX:
+                chunks.extend(_split_long(text, meta.get("page_start"),
+                                          meta.get("heading", ""), btype,
+                                          meta.get("para_start") or 0))
+            else:
+                chunks.append(Chunk(
+                    text=text, chunk_type=btype,
+                    heading_path=meta.get("heading", ""),
+                    page_start=meta.get("page_start"),
+                    page_end=meta.get("page_end"),
+                    para_start=meta.get("para_start"),
+                    para_end=meta.get("para_end")))
+        buf = []
+        meta.clear()
 
     for b in parsed.blocks:
         if not b.text.strip():
             continue
-        # 目录 / 参考文献单独成块（检索时过滤，但保留可追溯）
-        if b.block_type in ("reference", "toc"):
-            chunks.extend(_split_long(b.text, b.page, b.heading_path, b.block_type, b.para_no))
+        # 目录 / 参考文献 / 表格 / 脚注 / 摘要 / 图表说明：独立成块，保持完整
+        if b.block_type in ("reference", "toc", "footnote", "table",
+                            "abstract", "figure_caption"):
+            if buf and meta.get("heading_only"):
+                # 缓冲里只有标题（如「参考文献」）：并入特殊块，避免 4 字碎片片段
+                chunks.extend(_split_long(buf[0] + "\n" + b.text, b.page,
+                                          b.heading_path, b.block_type, b.para_no))
+                buf = []
+                meta.clear()
+            else:
+                flush()
+                chunks.extend(_split_long(b.text, b.page, b.heading_path,
+                                          b.block_type, b.para_no))
             continue
-        # 脚注 / 表格 / 摘要 / 图表说明独立成块
-        if b.block_type in ("footnote", "table", "abstract", "figure_caption"):
-            chunks.extend(_split_long(b.text, b.page, b.heading_path, b.block_type, b.para_no))
-            continue
-        # 标题：边界。标题文字本身也必须进入片段（此前只记路径、文字被丢弃，
-        # 导致论文标题等大字行在检索与元数据抽取时不可见）
+        # 标题：天然边界；标题文字本身进入新片段开头
         if b.block_type == "heading":
             flush()
-            buf_heading = b.heading_path
-            buf_text = b.text + "\n"
-            buf_type = "body"
-            buf_page_start = b.page
-            buf_page_end = b.page
-            buf_para_start = b.para_no
-            buf_para_end = b.para_no
+            buf = [b.text]
+            meta = {"heading": b.heading_path, "type": "body",
+                    "page_start": b.page, "page_end": b.page,
+                    "para_start": b.para_no, "para_end": b.para_no,
+                    "heading_only": True}
             continue
-        cost = boundary_cost(b)
-        est = len(buf_text) + len(b.text)
-        if buf_text and (cost >= 2 or est > CHUNK_MAX):
+        # 正文段落：整段加入；只有加上后会超硬上限才提前 flush
+        joined = "".join(buf)
+        if buf and len(joined) + len(b.text) > CHUNK_HARD_MAX:
             flush()
-            buf_heading = b.heading_path
-        if not buf_text:
-            buf_type = b.block_type
-            buf_heading = b.heading_path
-            buf_page_start = b.page
-            buf_para_start = b.para_no
-        buf_text += ("\n" if buf_text else "") + b.text
-        buf_page_end = b.page
-        buf_para_end = b.para_no
-        if len(buf_text) >= CHUNK_MAX:
+        if not buf:
+            meta = {"heading": b.heading_path, "type": "body",
+                    "page_start": b.page, "page_end": b.page,
+                    "para_start": b.para_no, "para_end": b.para_no}
+        buf.append(b.text)
+        meta["page_end"] = b.page
+        meta["para_end"] = b.para_no
+        meta["heading_only"] = False
+        # 达到目标区间即收尾（在段落边界上，不切断内容）
+        if len("".join(buf)) >= CHUNK_SOFT_MAX:
             flush()
     flush()
-
-    # 后处理：重叠（前一块末尾 ~100 字补到后一块开头）
-    for i in range(1, len(chunks)):
-        prev = chunks[i - 1]
-        cur = chunks[i]
-        if prev.chunk_type in ("reference", "toc", "table", "footnote") or \
-           cur.chunk_type in ("reference", "toc", "table", "footnote"):
-            continue
-        tail = prev.text[-OVERLAP:]
-        if len(tail) >= 40 and not cur.text.startswith(tail):
-            cur.text = tail + cur.text
     return chunks
 
 

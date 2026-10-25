@@ -14,6 +14,7 @@ from ..ai.prompts import OUTLINE_PROMPT, PROMPT_VERSION, render_chunks
 from ..config import get_config
 from ..errors import AppError
 from ..services.designs import get_tree, leaf_ids, renumber
+from ..textutil import truncate_sentence
 
 OUTLINE_LENGTH_RATIO = 0.2  # 大纲长度约为目标字数的 15%–25%
 
@@ -178,9 +179,9 @@ async def generate_outline(outline_id: int, outline_chapter_id: int, *, trace: s
 
     # 4. 生成
     prompt = OUTLINE_PROMPT.format(
-        intent=design["intent"][:2000],
+        intent=truncate_sentence(design["intent"], 2000),
         title=design["title"] or "（未定）",
-        overall_idea=(design["overall_idea"] or "（无）")[:2000],
+        overall_idea=truncate_sentence(design["overall_idea"] or "（无）", 2000),
         tree=tree_text,
         sibling_outlines=sibling_text or "（尚无其他章节大纲）",
         chunks=chunks_text or "（没有检索到相关文献材料）",
