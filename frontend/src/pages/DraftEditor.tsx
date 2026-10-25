@@ -38,6 +38,7 @@ export function DraftEditor() {
   const [exportMode, setExportMode] = useState<"final" | "work">("final");
   const [exportFormat, setExportFormat] = useState("gb7714");
   const [exportTodo, setExportTodo] = useState(false);
+  const [exportForce, setExportForce] = useState(false);
   const [checks, setChecks] = useState<ExportChecks | null>(null);
   const [fixCitation, setFixCitation] = useState<Citation | null>(null);
   const [fixChunkId, setFixChunkId] = useState<number | null>(null);
@@ -180,6 +181,7 @@ export function DraftEditor() {
       await download(`/api/drafts/${draftId}/export`, {
         mode: exportMode, citation_format: exportFormat,
         include_todo: exportTodo ? "true" : "false",
+        force: exportForce ? "true" : "false",
       });
     } catch (e) {
       message.error((e as { error?: { userMessage: string } }).error?.userMessage || "导出失败");
@@ -441,7 +443,7 @@ export function DraftEditor() {
                 <Alert type="warning" showIcon message={`实际字数 ${checks.actual_words} 与目标 ${checks.target_words} 偏差超过 20%`} />
               )}
               {checks.invalid_citations > 0 && (
-                <Alert type="error" showIcon message={`存在 ${checks.invalid_citations} 条无效引用，定稿导出将被阻止；请先处理或改用工作稿`} />
+                <Alert type="error" showIcon message={`存在 ${checks.invalid_citations} 条无效引用：定稿导出需勾选下方「强行导出」确认`} />
               )}
               <Descriptions size="small" column={2}>
                 <Descriptions.Item label="实际字数">{checks.actual_words}</Descriptions.Item>
@@ -452,7 +454,7 @@ export function DraftEditor() {
           <div>
             <Typography.Text strong>导出模式</Typography.Text>
             <Radio.Group value={exportMode} onChange={(e) => setExportMode(e.target.value)} style={{ marginLeft: 12 }}>
-              <Radio value="final" disabled={!!checks && checks.invalid_citations > 0}>定稿（正文 + 参考文献）</Radio>
+              <Radio value="final">定稿（正文 + 参考文献）</Radio>
               <Radio value="work">工作稿（含思路、大纲、片段清单）</Radio>
             </Radio.Group>
           </div>
@@ -466,6 +468,15 @@ export function DraftEditor() {
           <Checkbox checked={exportTodo} onChange={(e) => setExportTodo(e.target.checked)}>
             文末附「待办清单」（保留未解决的提示块）
           </Checkbox>
+          {!!checks && checks.invalid_citations > 0 && (
+            <Checkbox checked={exportForce} onChange={(e) => setExportForce(e.target.checked)}
+              style={{ border: "1px solid #ffccc7", borderRadius: 6, padding: "6px 10px", width: "100%" }}>
+              <span style={{ color: "#cf1322" }}>
+                强行导出定稿：{checks.invalid_citations} 条无效引用将以「[待补充：文献信息]」
+                占位符写入参考文献，由我导出后自行核对补写
+              </span>
+            </Checkbox>
+          )}
         </Space>
       </Modal>
 

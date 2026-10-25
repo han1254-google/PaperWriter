@@ -110,14 +110,16 @@ def export_checks(draft_id: int):
 @router.get("/drafts/{draft_id}/export")
 def export_draft(draft_id: int, mode: str = "final",
                  citation_format: str = "gb7714",
-                 include_todo: bool = False):
+                 include_todo: bool = False, force: bool = False):
     from ..logging_setup import log_backend
     if mode not in ("final", "work"):
         raise AppError("VALIDATION_ERROR", message="导出模式仅支持 final/work",
                        http_status=422)
     if mode == "final":
         checks = export.export_checks(draft_id)
-        if checks["invalid_citations"] > 0:
+        if checks["invalid_citations"] > 0 and not force:
+            # 作者显式确认（force=true）后允许强行导出：
+            # 无效引用以占位符进入参考文献，由作者导出后自行核对补写
             raise AppError("EXPORT_INVALID_CITATION", stage="export",
                            message=f"{checks['invalid_citations']} 条无效引用")
     path = export.export_to_file(draft_id, mode=mode, citation_format=citation_format,
