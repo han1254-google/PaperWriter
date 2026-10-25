@@ -76,6 +76,13 @@ async def generate_plan(plan_id: int):
     return ok({"job_id": job_id, "started": started})
 
 
+@router.post("/plans/{plan_id}/reverify")
+def reverify_plan(plan_id: int):
+    """重新执行溯源绑定与数字校验（不重新生成）。"""
+    result = experiments.reverify_plan(plan_id)
+    return ok(result)
+
+
 @router.get("/plans/{plan_id}/export")
 def export_plan(plan_id: int):
     """导出方案：正文 + 溯源表（含数据待核实标注）。"""

@@ -19,8 +19,13 @@ from ..config import get_config
 from ..errors import AppError
 from ..textutil import truncate_sentence
 
-SOURCE_RE = re.compile(r"\[来源\s*(\d+)(?:\s*[,，、]\s*(\d+))*\]")
+SOURCE_RE = re.compile(r"\[来源([\d,\s，、]*)\]")
 NUMBER_RE = re.compile(r"\d+\.\d+|\d{2,}")
+
+
+def _source_numbers(match: re.Match) -> list[int]:
+    """提取 [来源2,3,6] 中的全部编号（普通正则的重复分组只保留首尾）。"""
+    return [int(x) for x in re.findall(r"\d+", match.group(1))]
 
 # Methods 类章节加权：实验方案最需要方法学证据（§heading_path 含这些词）
 _METHODS_BONUS = 0.06
@@ -172,13 +177,57 @@ async def generate_plan(plan_id: int, *, trace: str, job_id: int,
     await on_event({"type": "progress", "message": "绑定溯源与校验数据…"})
     db.save_version("experiment_plan", plan_id,
                     {"content": plan["content"], "saved_at": db.now()})
+    # 保存证据清单（source_no → chunk），供「重新校验」精确恢复
+    evidence_map = {i + 1: {"chunk_id": e["chunk_id"],
+                            "document_id": e.get("document_id")}
+                    for i, e in enumerate(evidence)}
     db.update("experiment_plan", plan_id, {
         "content": content, "status": "draft",
         "model": get_config().get("deepseek.model"),
         "prompt_version": PROMPT_VERSION,
+        "evidence_json": json.dumps(evidence_map, ensure_ascii=False),
         "updated_at": db.now()})
     validation = _bind_and_verify(plan_id, content, evidence)
     return {"plan_id": plan_id, "validation": validation}
+
+
+def reverify_plan(plan_id: int) -> dict[str, Any]:
+    """对已有方案重新执行溯源绑定与数字校验（不重新生成、不调模型）。
+
+    从现有 plan_citation 恢复证据列表（chunk 文本与元数据），
+    按新校验规则重建溯源记录。
+    """
+    plan = db.fetch_one("SELECT * FROM experiment_plan WHERE id=?", (plan_id,))
+    if not plan or not (plan["content"] or "").strip():
+        raise AppError("NOT_FOUND", message="方案不存在或尚未生成")
+    # 优先用生成时保存的证据清单精确恢复；旧方案回退到 plan_citation 行
+    stored = db.get_json_col(plan, "evidence_json")
+    evidence: dict[int, dict[str, Any]] = {}
+    if isinstance(stored, dict) and stored:
+        chunk_ids = [v["chunk_id"] for v in stored.values() if isinstance(v, dict)]
+        if chunk_ids:
+            placeholders = ",".join("?" * len(chunk_ids))
+            rows = db.fetch_all(
+                f"SELECT c.id AS chunk_id, c.text, c.heading_path, c.page_start, "
+                f"c.document_id, d.title, d.authors, d.published_at "
+                f"FROM chunk c LEFT JOIN document d ON d.id = c.document_id "
+                f"WHERE c.id IN ({placeholders})", tuple(chunk_ids))
+            by_id = {r["chunk_id"]: r for r in rows}
+            for no, v in stored.items():
+                if isinstance(v, dict) and v.get("chunk_id") in by_id:
+                    evidence[int(no)] = by_id[v["chunk_id"]]
+    if not evidence:
+        rows = db.fetch_all(
+            "SELECT pc.source_no, c.id AS chunk_id, c.text, c.heading_path, c.page_start, "
+            "c.document_id, d.title, d.authors, d.published_at "
+            "FROM plan_citation pc LEFT JOIN chunk c ON c.id = pc.chunk_id "
+            "LEFT JOIN document d ON d.id = c.document_id WHERE pc.plan_id=?",
+            (plan_id,))
+        for r in rows:
+            if r["chunk_id"]:
+                evidence[r["source_no"]] = dict(r)
+    return _bind_and_verify(plan_id, plan["content"],
+                            [evidence[n] for n in sorted(evidence)])
 
 
 def _bind_and_verify(plan_id: int, content: str,
@@ -193,10 +242,7 @@ def _bind_and_verify(plan_id: int, content: str,
     stats = {"sources": 0, "unverified": 0, "invalid_bind": 0}
     seen: set[int] = set()
     for m in SOURCE_RE.finditer(content):
-        for num_s in m.groups():
-            if not num_s:
-                continue
-            source_no = int(num_s)
+        for source_no in _source_numbers(m):
             if source_no in seen:
                 continue
             seen.add(source_no)
@@ -234,11 +280,15 @@ def _bind_and_verify(plan_id: int, content: str,
 
 def _missing_numbers(sentence: str, evidence_by_no: dict[int, dict[str, Any]],
                      marker_match: re.Match) -> list[str]:
-    """检查引用句中的数字是否出现在绑定证据的原文里（忽略空白差异）。"""
+    """检查引用句中的数字是否出现在绑定证据的原文里（忽略空白差异）。
+
+    注意：先剔除引用标记本身（[来源9,13,16] 中的 13、16 是文献编号，
+    不是被引用的数据，否则会误报）。
+    """
     from ..services.drafts import _norm  # 复用空白归一化
-    numbers = [n for n in NUMBER_RE.findall(sentence)
-               if not n.replace(".", "").isdigit() or len(n) > 1]
-    cited_nos = [int(g) for g in marker_match.groups() if g]
+    clean = SOURCE_RE.sub("", sentence)
+    numbers = NUMBER_RE.findall(clean)
+    cited_nos = _source_numbers(marker_match)
     texts = [_norm(evidence_by_no[n]["text"] or "")
              for n in cited_nos if n in evidence_by_no]
     if not texts:

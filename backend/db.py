@@ -18,7 +18,7 @@ from typing import Any, Iterator
 from .errors import AppError
 from .paths import get_data_dir
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_V1 = """
 CREATE TABLE category (
@@ -260,6 +260,8 @@ CREATE TABLE plan_citation (
 );
 CREATE INDEX idx_plan_citation_plan ON plan_citation(plan_id);
 """),
+    # v4：方案保存生成时的证据清单（source_no → chunk），供重新校验精确恢复
+    (4, "ALTER TABLE experiment_plan ADD COLUMN evidence_json TEXT;"),
 ]
 
 

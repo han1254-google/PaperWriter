@@ -106,7 +106,12 @@ export function ExperimentPlanEditor() {
             </Typography.Paragraph>
             <StreamBox state={stream} onStop={stop} rawLabel="模型原始输出" />
           </Card>
-          <Card size="small" title={`溯源表（${citations.length} 条）`} style={{ marginTop: 12 }}>
+          <Card size="small" title={`溯源表（${citations.length} 条）`} style={{ marginTop: 12 }}
+            extra={<Button size="small" onClick={async () => {
+              await post(`/api/plans/${planId}/reverify`);
+              message.success("已重新校验");
+              await load();
+            }}>重新校验</Button>}>
             {citations.length === 0 ? (
               <Typography.Text type="secondary">生成方案后自动绑定文献证据</Typography.Text>
             ) : (
