@@ -77,7 +77,7 @@ export function Wizard({ open, onFinish }: { open: boolean; onFinish: () => void
         items={[{ title: "欢迎与隐私说明" }, { title: "模型服务密钥" }, { title: "环境自检" }]} />
       {step === 0 && (
         <div>
-          <Typography.Title level={5}>欢迎使用文科论文写作助手</Typography.Title>
+          <Typography.Title level={5}>欢迎使用论文写作助手</Typography.Title>
           <Typography.Paragraph>
             本工具把「资料入库 → 章节设计 → 大纲设计 → 逐章初稿 → 全文导出」串成一条可回溯、可修改的写作工作流。
             所有文档、数据库与向量索引都保存在本机 <Typography.Text code>data/</Typography.Text> 目录。

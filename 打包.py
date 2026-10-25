@@ -37,7 +37,7 @@ DEFAULT_CONFIG = {
     "privacy_consent": False,
 }
 
-INSTALL_GUIDE = """文科论文写作助手 · 安装与使用说明
+INSTALL_GUIDE = """论文写作助手 · 安装与使用说明
 ======================================
 
 一、第一次安装（每台电脑只需一次，约 5 分钟）

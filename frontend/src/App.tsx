@@ -36,7 +36,7 @@ function NavShell() {
   return (
     <Layout className="app-layout">
       <Layout.Header className="app-header">
-        <div className="app-title">文科论文写作助手</div>
+        <div className="app-title">论文写作助手</div>
         <nav className="app-nav">
           <Link to="/files"
             className={`app-nav-item ${isFiles ? "active" : ""}`}>
