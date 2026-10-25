@@ -222,12 +222,12 @@ async def _extract_metadata(doc_id: int, trace: str, job_id: int) -> None:
         _set_status(doc_id, "parsed")
         return
     row = db.fetch_one("SELECT * FROM document WHERE id=?", (doc_id,))
-    # 注意：取前 4 个片段拼接（此前 fetch_one 只取第 1 个，PDF 首页若是
-    # 刊号/卷期等内容，模型将看不到标题、作者等关键信息）
+    # 注意：取前 6 个片段拼接（此前只取 1 个；期刊论文首页版式复杂，
+    # 标题可能出现在摘要之后，需要更宽的窗口）
     head_rows = db.fetch_all(
         "SELECT text FROM chunk WHERE document_id=? AND chunk_type IN ('body','abstract') "
-        "ORDER BY chunk_index LIMIT 4", (doc_id,))
-    text = "\n".join(r["text"] for r in head_rows)[:4000]
+        "ORDER BY chunk_index LIMIT 6", (doc_id,))
+    text = "\n".join(r["text"] for r in head_rows)[:6000]
     if not text.strip():
         return
     get_runner().check_cancel(job_id)

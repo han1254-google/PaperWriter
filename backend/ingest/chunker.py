@@ -133,10 +133,17 @@ def chunk_document(parsed: ParsedDoc) -> list[Chunk]:
         if b.block_type in ("footnote", "table", "abstract", "figure_caption"):
             chunks.extend(_split_long(b.text, b.page, b.heading_path, b.block_type, b.para_no))
             continue
-        # 标题：边界
+        # 标题：边界。标题文字本身也必须进入片段（此前只记路径、文字被丢弃，
+        # 导致论文标题等大字行在检索与元数据抽取时不可见）
         if b.block_type == "heading":
             flush()
             buf_heading = b.heading_path
+            buf_text = b.text + "\n"
+            buf_type = "body"
+            buf_page_start = b.page
+            buf_page_end = b.page
+            buf_para_start = b.para_no
+            buf_para_end = b.para_no
             continue
         cost = boundary_cost(b)
         est = len(buf_text) + len(b.text)
