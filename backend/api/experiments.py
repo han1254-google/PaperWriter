@@ -113,6 +113,33 @@ def export_plan(plan_id: int):
             title = c.get("doc_title") or "（未关联文献）"
             lines.append(f"| [来源{c['source_no']}] | {title} | {loc} | {status} |")
         lines.append("")
+        # 证据原文附录：完整片段内容，便于离线核对（有据可查）
+        lines += ["## 证据原文", ""]
+        bound = [c for c in plan["citations"] if c.get("chunk_id")]
+        if bound:
+            for c in bound:
+                meta_bits = []
+                if c.get("doc_authors"):
+                    meta_bits.append(c["doc_authors"])
+                if c.get("doc_published_at"):
+                    meta_bits.append(c["doc_published_at"])
+                if c.get("heading_path"):
+                    meta_bits.append(c["heading_path"])
+                if c.get("page_start"):
+                    meta_bits.append(f"第{c['page_start']}页")
+                head = f"### [来源{c['source_no']}] {c.get('doc_title') or '未命名文献'}"
+                if meta_bits:
+                    head += f"（{'；'.join(meta_bits)}）"
+                lines += [head, ""]
+                lines.append(f"> {(c.get('chunk_text') or '').strip()}")
+                lines.append("")
+        unbound = [c for c in plan["citations"] if not c.get("chunk_id")]
+        if unbound:
+            lines += ["### 未关联的来源", ""]
+            for c in unbound:
+                lines.append(f"- [来源{c['source_no']}]：{c.get('data_note') or '待核实'}"
+                             f"（{c.get('quote') or ''}）")
+            lines.append("")
     else:
         lines += ["（无溯源引用）", ""]
     out_dir = get_data_dir() / "exports"
