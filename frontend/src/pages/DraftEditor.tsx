@@ -221,8 +221,8 @@ export function DraftEditor() {
 
   const buildTreeData = (nodes: Draft["tree"]): object[] => {
     if (!nodes) return [];
-    const map = new Map<number, { node: DraftTreeNode; children: object[] }>();
-    nodes.forEach((n) => map.set(n.id, { node: n, children: [] }));
+    // map 存节点本身（同 OutlineEditor 修复：空壳对象会导致树退化成扁平一级）
+    const byId = new Map<number, { children: object[] }>();
     const roots: object[] = [];
     for (const n of nodes) {
       const st = n.draft_chapter?.status || "pending";
@@ -250,9 +250,9 @@ export function DraftEditor() {
         ),
         children: [] as object[],
       };
-      map.get(n.id)!.children.push(item);
-      if (n.parent_id == null || !map.has(n.parent_id)) roots.push(item);
-      else map.get(n.parent_id)!.children.push(item);
+      byId.set(n.id, item as { children: object[] });
+      if (n.parent_id == null || !byId.has(n.parent_id)) roots.push(item);
+      else byId.get(n.parent_id)!.children.push(item);
     }
     return roots;
   };

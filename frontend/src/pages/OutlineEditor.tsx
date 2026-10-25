@@ -136,10 +136,12 @@ export function OutlineEditor() {
   if (loading && !outline) return <Spin style={{ display: "block", margin: "80px auto" }} />;
   if (!outline) return <Empty style={{ marginTop: 80 }} />;
 
-  // 保持树结构：按 parent_id 组装
+  // 保持树结构：按 parent_id 组装。
+  // 注意：map 必须存节点本身（此前存空壳对象，子节点挂到空壳上，
+  // 渲染时 children 全是空的，树退化成扁平一级）
   const buildTreeData = (nodes: Outline["tree"]): object[] => {
     if (!nodes) return [];
-    const map = new Map(nodes.map((n) => [n.id, { node: n, children: [] as object[] }]));
+    const byId = new Map<number, { children: object[] }>();
     const roots: object[] = [];
     for (const n of nodes) {
       const item = {
@@ -161,9 +163,9 @@ export function OutlineEditor() {
         ),
         children: [] as object[],
       };
-      map.get(n.id)?.children.push(item);
-      if (n.parent_id == null || !map.has(n.parent_id)) roots.push(item);
-      else map.get(n.parent_id)!.children.push(item);
+      byId.set(n.id, item as { children: object[] });
+      if (n.parent_id == null || !byId.has(n.parent_id)) roots.push(item);
+      else byId.get(n.parent_id)!.children.push(item);
     }
     return roots;
   };
